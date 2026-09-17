@@ -341,7 +341,7 @@ export default function AdminDashboard() {
               </button>
             </div>
             <p className="text-[11px] text-orange-700/80 mt-1">
-              *นำ UID นี้ไปเพิ่มในตัวแปร <code className="bg-orange-100 px-1 py-0.5 rounded font-mono">ALLOWED_ADMIN_UIDS</code> เพื่ออนุญาตสิทธิ์
+              *นำ UID นี้ส่งไปแจ้งที่ <code className="bg-orange-100 px-1 py-0.5 rounded font-mono">LINE ID: tamvrzo123123</code> เพื่ออนุญาตสิทธิ์
             </p>
           </div>
 
