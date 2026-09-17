@@ -36,7 +36,7 @@ export async function POST(req: Request) {
 
     // === จุดที่แก้ไข ===
     // เปลี่ยนจาก /admin/maintenance/${ticketId} เป็น /admin?id=${ticketId} เพื่อไม่ให้ติด 404
-    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "https://maintenance-app-repair.vercel.app/";
     const adminDashboardUrl = `${baseUrl}/admin?id=${ticketId}`;
 
     // 3. ประกอบร่าง LINE Flex Message
