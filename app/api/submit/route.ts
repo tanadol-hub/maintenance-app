@@ -4,7 +4,7 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
 
-    // 1. ส่งข้อมูลไปยัง Google Apps Script
+    // 1. ส่งข้อมูลไปยัง Google Apps Script เพื่อบันทึกลง Database
     const gasResponse = await fetch(process.env.GOOGLE_SCRIPT_URL!, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -17,34 +17,35 @@ export async function POST(req: Request) {
       throw new Error(gasResult.message || "Google Apps Script Error");
     }
 
-    const { ticketId, imageUrl } = gasResult;
+    const { ticketId } = gasResult; // ดึง ticketId มาใช้สร้างลิงก์
 
-    // 2. กำหนดสีการ์ดและข้อความตามระดับผลกระทบ
-    let headerBgColor = "#16a34a"; // สีเขียว
-    let impactText = "🟢 ปกติ (Low)";
+    // 2. กำหนดสีและข้อความตามระดับผลกระทบ
+    let headerBgColor = "#16a34a"; // สีเขียว (Normal)
+    let impactText = "ปกติ (Normal)";
+    let impactTextColor = "#16a34a";
 
     if (body.impact === "Critical") {
       headerBgColor = "#dc2626"; // สีแดง
-      impactText = "🔴 วิกฤต (Critical)";
+      impactText = "วิกฤต (Critical)";
+      impactTextColor = "#dc2626";
     } else if (body.impact === "High") {
       headerBgColor = "#ea580c"; // สีส้ม
-      impactText = "🟡 ด่วน (High)";
+      impactText = "ด่วน (High)";
+      impactTextColor = "#ea580c";
     }
 
-    // ตรวจสอบ URL รูปภาพ และบังคับให้เป็น String เสมอ
-    const validUrl = typeof imageUrl === "string" ? imageUrl : "";
-    const isValidImageUrl = validUrl.startsWith("https://") && validUrl.length < 1000;
+    // === จุดที่แก้ไข ===
+    // เปลี่ยนจาก /admin/maintenance/${ticketId} เป็น /admin?id=${ticketId} เพื่อไม่ให้ติด 404
+    const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || "http://localhost:3000";
+    const adminDashboardUrl = `${baseUrl}/admin?id=${ticketId}`;
 
-    // คลีนเบอร์โทรให้เหลือแค่ตัวเลข ป้องกัน LINE API Error เวลาเจอช่องว่างหรือตัวอักษร
-    const cleanPhone = typeof body.phone === "string" ? body.phone.replace(/[^0-9+]/g, "") : "0000000000";
-
-    // 3. ประกอบร่าง LINE Flex Message (แก้บั๊ก Layout แล้ว)
+    // 3. ประกอบร่าง LINE Flex Message
     const flexMessage = {
       to: process.env.LINE_USER_ID,
       messages: [
         {
           type: "flex",
-          altText: `🛠️ แจ้งซ่อมใหม่: ${ticketId} (${body.room})`,
+          altText: `⚠️ แจ้งซ่อมใหม่: ${ticketId} (${body.room})`,
           contents: {
             type: "bubble",
             size: "mega",
@@ -55,84 +56,26 @@ export async function POST(req: Request) {
               paddingAll: "20px",
               contents: [
                 {
-                  type: "box",
-                  layout: "horizontal",
-                  contents: [
-                    {
-                      type: "text",
-                      text: "🛠️ แจ้งซ่อมใหม่",
-                      weight: "bold",
-                      color: "#ffffff",
-                      size: "sm",
-                    },
-                    {
-                      type: "text",
-                      text: impactText,
-                      color: "#ffffff",
-                      size: "sm",
-                      align: "end",
-                      weight: "bold",
-                    },
-                  ],
-                },
-                {
                   type: "text",
-                  text: ticketId || "Ticket ID",
+                  text: "⚠️ มีแจ้งซ่อมใหม่เข้าสู่ระบบ!",
                   weight: "bold",
-                  size: "xl",
                   color: "#ffffff",
-                  margin: "md",
-                },
-              ],
-            },
-            ...(isValidImageUrl
-              ? {
-                  hero: {
-                    type: "image",
-                    url: validUrl,
-                    size: "full",
-                    aspectRatio: "16:9",
-                    aspectMode: "cover",
-                    backgroundColor: "#f3f4f6",
-                  },
+                  size: "md",
                 }
-              : {}),
+              ]
+            },
             body: {
               type: "box",
               layout: "vertical",
               paddingAll: "20px",
+              spacing: "md",
               contents: [
                 {
                   type: "text",
-                  text: "รายการอาการเสีย:",
+                  text: `Ticket: ${ticketId || "N/A"}`,
                   weight: "bold",
-                  color: "#6b7280",
-                  size: "sm"
-                },
-                {
-                  type: "text",
-                  text: body.issuesList || "ไม่ได้ระบุ",
-                  wrap: true,
-                  color: "#ef4444",
-                  weight: "bold",
-                  size: "md",
-                  margin: "sm" // เปลี่ยนมาใช้ margin แทน
-                },
-                ...(body.description
-                  ? [
-                      {
-                        type: "text",
-                        text: `เพิ่มเติม: ${body.description}`,
-                        wrap: true,
-                        color: "#4b5563",
-                        size: "xs",
-                        margin: "md",
-                      },
-                    ]
-                  : []),
-                {
-                  type: "separator",
-                  margin: "xl",
+                  size: "xl",
+                  color: "#1f2937",
                 },
                 {
                   type: "box",
@@ -146,7 +89,7 @@ export async function POST(req: Request) {
                       spacing: "sm",
                       contents: [
                         { type: "text", text: "📍 สถานที่", color: "#6b7280", size: "sm", flex: 3 },
-                        { type: "text", text: `${body.room} (${body.pcNumber})`, weight: "bold", color: "#1f2937", size: "sm", flex: 7, wrap: true },
+                        { type: "text", text: body.room, weight: "bold", color: "#1f2937", size: "sm", flex: 7, wrap: true },
                       ],
                     },
                     {
@@ -154,17 +97,8 @@ export async function POST(req: Request) {
                       layout: "baseline",
                       spacing: "sm",
                       contents: [
-                        { type: "text", text: "💻 ครุภัณฑ์", color: "#6b7280", size: "sm", flex: 3 },
-                        { type: "text", text: body.assetId || "-", weight: "bold", color: "#1f2937", size: "sm", flex: 7, wrap: true },
-                      ],
-                    },
-                    {
-                      type: "box",
-                      layout: "baseline",
-                      spacing: "sm",
-                      contents: [
-                        { type: "text", text: "👤 ผู้แจ้ง", color: "#6b7280", size: "sm", flex: 3 },
-                        { type: "text", text: `${body.name} (${body.userRole})`, weight: "bold", color: "#1f2937", size: "sm", flex: 7, wrap: true },
+                        { type: "text", text: "🔴 ผลกระทบ", color: "#6b7280", size: "sm", flex: 3 },
+                        { type: "text", text: impactText, weight: "bold", color: impactTextColor, size: "sm", flex: 7, wrap: true },
                       ],
                     },
                   ],
@@ -174,18 +108,16 @@ export async function POST(req: Request) {
             footer: {
               type: "box",
               layout: "vertical",
-              spacing: "sm",
               paddingAll: "20px",
               contents: [
                 {
                   type: "button",
                   style: "primary",
-                  height: "sm",
                   color: "#2563eb",
                   action: {
                     type: "uri",
-                    label: `📞 โทรหาผู้แจ้ง`,
-                    uri: `tel:${cleanPhone}`, // ใช้เบอร์ที่ล้างตัวหนังสือออกแล้ว
+                    label: "🔍 ดูรายละเอียด / จัดการ",
+                    uri: adminDashboardUrl,
                   },
                 },
               ],
@@ -208,7 +140,6 @@ export async function POST(req: Request) {
     if (!lineResponse.ok) {
       const lineError = await lineResponse.text();
       console.error("LINE Messaging API Error:", lineError);
-      // โค้ดนี้จะช่วยให้คุณเห็น Error ของ LINE ในหน้า Console (Terminal) ของโปรแกรมคุณ
     }
 
     return NextResponse.json({ success: true, ticketId });
