@@ -127,25 +127,24 @@ export default function AdminDashboard() {
             : [];
           const validUids = [...ALLOWED_ADMIN_UIDS, ...envUids].filter(Boolean);
 
-          // ถ้าไม่ได้ระบุ UID ไว้เลย หรือ UID ตรงกับที่มีสิทธิ์
-          if (validUids.length === 0 || validUids.includes(userUid)) {
-            setIsLoggedIn(true);
-            setAdminProfile({
-              userId: profile.userId,
-              displayName: profile.displayName,
-              pictureUrl: profile.pictureUrl
-            });
-            setUnauthorizedUid(null);
-          } else {
-            // กรณี UID ไม่ได้รับอนุญาต
-            setIsLoggedIn(false);
-            setUnauthorizedUid(userUid);
-            setAdminProfile({
-              userId: profile.userId,
-              displayName: profile.displayName,
-              pictureUrl: profile.pictureUrl
-            });
-          }
+         if (validUids.length > 0 && validUids.includes(userUid)) {
+  setIsLoggedIn(true);
+  setAdminProfile({
+    userId: profile.userId,
+    displayName: profile.displayName,
+    pictureUrl: profile.pictureUrl
+  });
+  setUnauthorizedUid(null);
+} else {
+  // หากยังไม่ได้ใส่ UID หรือ UID ไม่ตรง ให้ล็อกหน้า "ไม่มีสิทธิ์เข้าถึงระบบ" และโชว์ UID
+  setIsLoggedIn(false);
+  setUnauthorizedUid(userUid);
+  setAdminProfile({
+    userId: profile.userId,
+    displayName: profile.displayName,
+    pictureUrl: profile.pictureUrl
+  });
+}
         } else {
           setIsLoggedIn(false);
         }
