@@ -4,7 +4,7 @@ import React, { useState, useEffect } from "react";
 import { motion } from "framer-motion";
 import { 
   Search, Clock, CheckCircle2, Wrench, AlertCircle, 
-  MapPin, User, Calendar, Filter, RefreshCw
+  MapPin, User, Calendar, Filter, RefreshCw, Download
 } from "lucide-react";
 
 type TicketStatus = "pending" | "in_progress" | "completed" | "cancelled";
@@ -21,6 +21,7 @@ interface MaintenanceTicket {
   createdAt: string;
   updatedAt?: string;
   technicianNote?: string;
+  description?: string; // เพิ่มเพื่อรองรับการ export รายละเอียด
 }
 
 // URL ระบบ Google Apps Script
@@ -65,6 +66,7 @@ export default function TrackingPage() {
           issues: item.issuesList 
             ? (Array.isArray(item.issuesList) ? item.issuesList : String(item.issuesList).split(", ")) 
             : (Array.isArray(item.issues) ? item.issues : []),
+          description: item.description || "",
           impact: item.impact === "Critical" || item.impact === "High" ? "high" : "normal",
           status: mapStatus(item.status),
           createdAt: item.createdAt || "",
@@ -127,6 +129,56 @@ export default function TrackingPage() {
     }
   };
 
+  // --- ส่วนเตรียมข้อมูล Dashboard ---
+  const pendingCount = tickets.filter(t => t.status === "pending").length;
+  const inProgressCount = tickets.filter(t => t.status === "in_progress").length;
+  const completedCount = tickets.filter(t => t.status === "completed").length;
+
+  // --- ฟังก์ชัน Export ข้อมูลเป็น CSV (เฉพาะงานเสร็จสิ้น) ---
+  const handleExportCompleted = () => {
+    const completedTickets = tickets.filter(t => t.status === "completed");
+    
+    if (completedTickets.length === 0) {
+      alert("ไม่มีข้อมูลงานที่ซ่อมเสร็จแล้วให้ Export ครับ");
+      return;
+    }
+
+    // สร้างหัวตาราง (Header)
+    const headers = ["เลขที่ใบแจ้ง", "วันที่แจ้ง", "ชื่อผู้แจ้ง", "เบอร์โทรศัพท์", "สถานที่/ห้อง", "หมายเลข PC", "ปัญหาที่แจ้ง", "รายละเอียดเพิ่มเติม", "ความเร่งด่วน", "บันทึกจากช่าง"];
+    
+    // จัดเตรียมข้อมูลแต่ละแถว
+    const csvRows = completedTickets.map(t => {
+      return [
+        t.id,
+        t.createdAt,
+        t.reporterName,
+        t.phone,
+        t.room,
+        t.pcNumber,
+        t.issues.join("; "), // นำปัญหามาต่อกันด้วย ;
+        t.description?.replace(/(\r\n|\n|\r)/gm, " ") || "-", // ลบการขึ้นบรรทัดใหม่กันไฟล์พัง
+        t.impact,
+        t.technicianNote?.replace(/(\r\n|\n|\r)/gm, " ") || "-"
+      ].map(value => `"${value}"`).join(","); // ครอบด้วย "" ป้องกันลูกน้ำในข้อความทำให้คอลัมน์เพี้ยน
+    });
+
+    // ใส่ BOM (\uFEFF) ไว้ด้านหน้าเพื่อให้ Excel อ่านภาษาไทยได้สมบูรณ์ (UTF-8)
+    const csvContent = "\uFEFF" + [headers.join(","), ...csvRows].join("\n");
+    
+    // สร้างไฟล์และสั่งดาวน์โหลด
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    const dateStr = new Date().toISOString().split('T')[0];
+    
+    link.href = url;
+    link.download = `Completed_Tickets_${dateStr}.csv`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   return (
     <div className="min-h-screen bg-slate-50/80 p-4 py-10 font-sans backdrop-blur-sm relative z-10">
       <div className="max-w-4xl mx-auto space-y-6">
@@ -141,6 +193,48 @@ export default function TrackingPage() {
             ค้นหาด้วยเลขที่ใบแจ้งซ่อม เบอร์โทรศัพท์ หรือหมายเลขเครื่อง
           </p>
         </div>
+
+        {/* ---------------- Dashboard สรุปข้อมูล ---------------- */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+          <div className="bg-white p-4 md:p-5 rounded-2xl border border-amber-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-sm text-slate-500 font-bold mb-1">รอดำเนินการ</p>
+              <h3 className="text-2xl font-black text-amber-600">{pendingCount}</h3>
+            </div>
+            <div className="w-10 h-10 bg-amber-50 rounded-xl flex items-center justify-center text-amber-500">
+              <Clock className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-white p-4 md:p-5 rounded-2xl border border-orange-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-sm text-slate-500 font-bold mb-1">กำลังซ่อม</p>
+              <h3 className="text-2xl font-black text-orange-600">{inProgressCount}</h3>
+            </div>
+            <div className="w-10 h-10 bg-orange-50 rounded-xl flex items-center justify-center text-orange-500">
+              <Wrench className="w-5 h-5" />
+            </div>
+          </div>
+
+          <div className="bg-white p-4 md:p-5 rounded-2xl border border-emerald-200 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs md:text-sm text-slate-500 font-bold mb-1">ซ่อมเสร็จสิ้น</p>
+              <h3 className="text-2xl font-black text-emerald-600">{completedCount}</h3>
+            </div>
+            <div className="w-10 h-10 bg-emerald-50 rounded-xl flex items-center justify-center text-emerald-500">
+              <CheckCircle2 className="w-5 h-5" />
+            </div>
+          </div>
+
+          <button 
+            onClick={handleExportCompleted}
+            className="group bg-slate-800 hover:bg-slate-900 p-4 md:p-5 rounded-2xl border border-slate-700 shadow-sm flex flex-col items-center justify-center transition-all active:scale-95"
+          >
+            <Download className="w-6 h-6 text-emerald-400 mb-1 group-hover:-translate-y-1 transition-transform" />
+            <span className="text-xs md:text-sm font-bold text-white text-center">Export รายงาน<br/><span className="text-[10px] text-slate-400 font-normal">(เฉพาะงานที่เสร็จแล้ว)</span></span>
+          </button>
+        </div>
+        {/* ----------------------------------------------------------- */}
 
         {/* ค้นหา & ตัวกรอง */}
         <div className="bg-white rounded-2xl p-4 md:p-6 border border-slate-200 shadow-sm space-y-4">
