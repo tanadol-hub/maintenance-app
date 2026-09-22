@@ -37,7 +37,7 @@ interface AdminProfile {
 // --------------------------------------------------------------------------
 // ⚙️ การตั้งค่าระบบ
 // --------------------------------------------------------------------------
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbyZHtu9KINVtmOwEMjBdg6S0zA3ol4fSSA78xpIBO9v6Ic_OtB4IRf_eLpgPdbqfxGoyw/exec";
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbzFHi_3QeBp2qMBBwZVjGBEwiqHkieMYK2YsbhU0NKG0Hs3BUaCap_4ouF-Ze9UEv3smw/exec";
 const LIFF_ADMIN_ID = process.env.NEXT_PUBLIC_LIFF_ADMIN_ID || "2011648763-lxIG7crp"; 
 
 // 🔑 รายชื่อ UID ของ LINE ที่ระบุว่าเป็นแอดมิน

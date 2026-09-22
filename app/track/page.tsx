@@ -24,7 +24,7 @@ interface MaintenanceTicket {
 }
 
 // URL ระบบ Google Apps Script
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbyZHtu9KINVtmOwEMjBdg6S0zA3ol4fSSA78xpIBO9v6Ic_OtB4IRf_eLpgPdbqfxGoyw/exec";
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbzFHi_3QeBp2qMBBwZVjGBEwiqHkieMYK2YsbhU0NKG0Hs3BUaCap_4ouF-Ze9UEv3smw/exec";
 
 // ฟังก์ชันแปลงสถานะจากภาษาไทยใน Google Sheets ให้ตรงกับ TicketStatus ในระบบ
 const mapStatus = (thaiStatus: string): TicketStatus => {
