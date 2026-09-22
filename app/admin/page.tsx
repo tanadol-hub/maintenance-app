@@ -40,9 +40,7 @@ const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/ma
 const LIFF_ADMIN_ID = process.env.NEXT_PUBLIC_LIFF_ADMIN_ID || "2011648763-lxIG7crp"; 
 
 // 🔑 รายชื่อ UID ของ LINE ที่ระบุว่าเป็นแอดมิน (นำ UID ของคุณมาวางใส่ในอาร์เรย์นี้ได้เลย)
-const ALLOWED_ADMIN_UIDS: string[] = [
-  
-];
+const ALLOWED_ADMIN_UIDS: string[] = [];
 // --------------------------------------------------------------------------
 
 // ฟังก์ชันแปลงสถานะจากภาษาไทยใน Google Sheets ให้ตรงกับ TicketStatus ใน Next.js
@@ -103,7 +101,6 @@ export default function AdminDashboard() {
   const [editNote, setEditNote] = useState("");
 
   // 1. ตรวจสอบการเข้าสู่ระบบ LIFF และเช็ค UID แอดมินเมื่อเปิดหน้าเว็บ
- // 1. ตรวจสอบการเข้าสู่ระบบ LIFF และเช็ค UID แอดมินเมื่อเปิดหน้าเว็บ
   useEffect(() => {
     const verifyAdminAuth = async () => {
       setIsCheckingAuth(true);
@@ -144,7 +141,7 @@ export default function AdminDashboard() {
             console.error("Failed to fetch admins from Google Sheets", err);
           }
 
-          // รวบรวม UID จากทั้งในไฟล์ (ถ้ามีเผื่อไว้), จาก .env.local และจาก Google Sheets
+          // รวบรวม UID จากทั้งในไฟล์, จาก .env.local และจาก Google Sheets
           const envUids = process.env.NEXT_PUBLIC_ADMIN_UIDS 
             ? process.env.NEXT_PUBLIC_ADMIN_UIDS.split(",").map(u => u.trim()) 
             : [];
@@ -169,6 +166,7 @@ export default function AdminDashboard() {
 
     verifyAdminAuth();
   }, []);
+
   // 2. ดึงข้อมูลจริงจาก Google Sheets เมื่อยืนยันการล็อกอินแอดมินผ่านแล้ว
   useEffect(() => {
     if (!isLoggedIn) return;
@@ -389,7 +387,6 @@ export default function AdminDashboard() {
   // 📊 กรองรายการตามคำค้นหาและสถานะ
   // --------------------------------------------------------------------------
   const filteredTickets = tickets.filter((ticket) => {
-    // ป้องกันการแครชถ้าข้อมูลมาเป็น Number โดยการครอบ String() และบังคับค้นหาพิมพ์เล็ก-ใหญ่ได้ทั้งหมด
     const matchesSearch = String(ticket.id).toLowerCase().includes(searchTerm.toLowerCase()) || 
                           String(ticket.room).toLowerCase().includes(searchTerm.toLowerCase()) || 
                           String(ticket.reporterName).toLowerCase().includes(searchTerm.toLowerCase());
@@ -547,6 +544,7 @@ export default function AdminDashboard() {
 
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                 
+                {/* คอลัมน์ซ้าย: รายละเอียดข้อมูลผู้แจ้งและการชำรุด */}
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3 flex items-center gap-2"><User className="w-4 h-4 text-orange-500"/> ข้อมูลผู้แจ้ง</h4>
@@ -603,6 +601,7 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
+                {/* คอลัมน์ขวา: ส่วนบันทึกและปรับสถานะของแอดมิน */}
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 h-fit space-y-5">
                   <h4 className="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2"><Wrench className="w-4 h-4 text-orange-500"/> ส่วนจัดการของเจ้าหน้าที่</h4>
                   <div>
@@ -616,9 +615,21 @@ export default function AdminDashboard() {
                   </div>
                   <div>
                     <label className="block text-sm font-bold text-slate-900 mb-2">บันทึกการซ่อม (ผู้แจ้งจะเห็นข้อความนี้)</label>
-                    <textarea rows={4} value={editNote} onChange={(e) => setEditNote(e.target.value)} placeholder="เช่น เปลี่ยนสายจอภาพใหม่แล้วใช้งานได้ปกติ..." className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-sm resize-none shadow-sm"></textarea>
+                    <textarea 
+                      rows={4} 
+                      value={editNote} 
+                      onChange={(e) => setEditNote(e.target.value)} 
+                      placeholder="เช่น เปลี่ยนสายจอภาพใหม่แล้วใช้งานได้ปกติ..." 
+                      className="w-full bg-white border border-slate-300 rounded-xl px-4 py-3 text-slate-900 placeholder-slate-400 focus:outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-500/20 text-sm shadow-sm resize-none"
+                    />
                   </div>
-                  <button onClick={saveUpdate} className="w-full bg-orange-500 hover:bg-orange-600 text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-500/30 active:scale-[0.99]"><Save className="w-5 h-5" /> บันทึกและแจ้งเตือนผู้ใช้</button>
+
+                  <button 
+                    onClick={saveUpdate}
+                    className="w-full bg-orange-500 hover:bg-orange-600 active:scale-[0.99] text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 transition-all shadow-lg shadow-orange-500/20 text-sm"
+                  >
+                    <Save className="w-4 h-4" /> บันทึกการอัปเดต
+                  </button>
                 </div>
 
               </div>
