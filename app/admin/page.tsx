@@ -6,7 +6,8 @@ import {
   Search, Clock, CheckCircle2, Wrench, AlertCircle, 
   Settings, Filter, X, Save, LogIn, MessageCircle,
   User, MapPin, Image as ImageIcon, ExternalLink,
-  ShieldAlert, Lock, ShieldCheck, Copy, Check, LogOut
+  ShieldAlert, Lock, ShieldCheck, Copy, Check, LogOut,
+  Download, FileSpreadsheet
 } from "lucide-react";
 
 type TicketStatus = "pending" | "in_progress" | "completed" | "cancelled";
@@ -39,7 +40,7 @@ interface AdminProfile {
 const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbyZHtu9KINVtmOwEMjBdg6S0zA3ol4fSSA78xpIBO9v6Ic_OtB4IRf_eLpgPdbqfxGoyw/exec";
 const LIFF_ADMIN_ID = process.env.NEXT_PUBLIC_LIFF_ADMIN_ID || "2011648763-lxIG7crp"; 
 
-// 🔑 รายชื่อ UID ของ LINE ที่ระบุว่าเป็นแอดมิน (นำ UID ของคุณมาวางใส่ในอาร์เรย์นี้ได้เลย)
+// 🔑 รายชื่อ UID ของ LINE ที่ระบุว่าเป็นแอดมิน
 const ALLOWED_ADMIN_UIDS: string[] = [];
 // --------------------------------------------------------------------------
 
@@ -124,7 +125,6 @@ export default function AdminDashboard() {
             pictureUrl: profile.pictureUrl
           });
 
-          // ดึงรายชื่อ UID จาก Google Sheets
           let sheetAdmins: string[] = [];
           try {
             const res = await fetch(`${GAS_URL}?action=getAdmins`, { cache: "no-store" });
@@ -132,7 +132,6 @@ export default function AdminDashboard() {
             if (!text.trim().startsWith("<")) {
               const json = JSON.parse(text);
               if (json.status === "success" && Array.isArray(json.data)) {
-                // ดึงเฉพาะค่า UID ออกมาจากชุดข้อมูล
                 // eslint-disable-next-line @typescript-eslint/no-explicit-any
                 sheetAdmins = json.data.map((item: any) => String(item.uid).trim());
               }
@@ -141,7 +140,6 @@ export default function AdminDashboard() {
             console.error("Failed to fetch admins from Google Sheets", err);
           }
 
-          // รวบรวม UID จากทั้งในไฟล์, จาก .env.local และจาก Google Sheets
           const envUids = process.env.NEXT_PUBLIC_ADMIN_UIDS 
             ? process.env.NEXT_PUBLIC_ADMIN_UIDS.split(",").map(u => u.trim()) 
             : [];
@@ -167,7 +165,7 @@ export default function AdminDashboard() {
     verifyAdminAuth();
   }, []);
 
-  // 2. ดึงข้อมูลจริงจาก Google Sheets เมื่อยืนยันการล็อกอินแอดมินผ่านแล้ว
+  // 2. ดึงข้อมูลจริงจาก Google Sheets
   useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -177,7 +175,6 @@ export default function AdminDashboard() {
         const res = await fetch(`${GAS_URL}?action=getAllTickets`, { cache: "no-store" });
         const text = await res.text();
 
-        // ดักจับกรณี Google ส่งคืนหน้า HTML
         if (text.trim().startsWith("<")) {
           console.error("GAS returned HTML response instead of JSON:", text);
           alert("ไม่สามารถดึงข้อมูลได้: Google Apps Script ส่งคืนหน้าเว็บ HTML กรุณาเช็คว่าตั้งค่า 'Who has access' เป็น 'Anyone' หรือยัง");
@@ -206,7 +203,6 @@ export default function AdminDashboard() {
             technicianNote: String(item.technicianNote || item.note || ""),
           }));
 
-          // แสดงรายการโดยนำใบแจ้งซ่อมล่าสุดขึ้นก่อน
           setTickets(formattedTickets.reverse());
         }
       } catch (error) {
@@ -219,7 +215,54 @@ export default function AdminDashboard() {
     fetchTickets();
   }, [isLoggedIn]);
 
-  // ฟังก์ชันกดเข้าสู่ระบบผ่าน LINE
+  // ฟังก์ชันดาวน์โหลดเฉพาะงานที่ "เสร็จสิ้น" ออกเป็นไฟล์ CSV (เปิดใน Excel ได้ภาษาไทยไม่ติดสัญลักษณ์)
+  const handleExportCompletedCSV = () => {
+    const completedList = tickets.filter((t) => t.status === "completed");
+
+    if (completedList.length === 0) {
+      alert("ไม่มีข้อมูลงานที่เสร็จสิ้นสำหรับ Export ในขณะนี้");
+      return;
+    }
+
+    const headers = [
+      "เลขที่ใบแจ้ง",
+      "วันที่แจ้งซ่อม",
+      "กลุ่มผู้แจ้ง",
+      "ชื่อ-สกุล ผู้แจ้ง",
+      "เบอร์โทรศัพท์",
+      "ห้อง/สถานที่",
+      "หมายเลข PC",
+      "หัวข้อปัญหา",
+      "รายละเอียดเพิ่มเติม",
+      "บันทึกช่าง/การแก้ไข"
+    ];
+
+    const rows = completedList.map((t) => [
+      `"${t.id}"`,
+      `"${t.createdAt}"`,
+      `"${t.userRole}"`,
+      `"${t.reporterName}"`,
+      `"${t.phone}"`,
+      `"${t.room}"`,
+      `"${t.pcNumber}"`,
+      `"${t.issues.join(", ")}"`,
+      `"${(t.description || "").replace(/"/g, '""')}"`,
+      `"${(t.technicianNote || "").replace(/"/g, '""')}"`
+    ]);
+
+    const csvContent = "\uFEFF" + [headers.join(","), ...rows.map((r) => r.join(","))].join("\n");
+    const blob = new Blob([csvContent], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `รายงานงานซ่อมเสร็จสิ้น_${dateStr}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleLineLogin = async () => {
     try {
       if (!LIFF_ADMIN_ID) {
@@ -236,7 +279,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // ฟังก์ชันออกจากระบบ
   const handleLogout = async () => {
     try {
       if (LIFF_ADMIN_ID) {
@@ -271,11 +313,9 @@ export default function AdminDashboard() {
   const saveUpdate = async () => {
     if (!editingTicket) return;
     
-    // แปลงสถานะเป็นภาษาไทยเพื่อส่งกลับไป Google Sheets
     const thaiStatus = mapStatusToThai(editStatus);
 
     try {
-      // ยิง API ไปอัปเดตข้อมูลและบันทึกข้อความช่างบน Google Sheets
       const res = await fetch(
         `${GAS_URL}?action=updateStatus&ticketId=${encodeURIComponent(editingTicket.id)}&status=${encodeURIComponent(thaiStatus)}&note=${encodeURIComponent(editNote)}`,
         { cache: "no-store" }
@@ -290,7 +330,6 @@ export default function AdminDashboard() {
       const json = JSON.parse(text);
 
       if (json.status === "success") {
-        // อัปเดตข้อมูลบนหน้าจอ
         setTickets(tickets.map(t => t.id === editingTicket.id ? { ...t, status: editStatus, technicianNote: editNote } : t));
         setIsModalOpen(false);
         alert("อัปเดตสถานะเรียบร้อยแล้ว!");
@@ -303,9 +342,11 @@ export default function AdminDashboard() {
     }
   };
 
-  // --------------------------------------------------------------------------
-  // ⏳ หน้าจอขณะกำลังตรวจสอบสิทธิ์ (Loading State)
-  // --------------------------------------------------------------------------
+  // คำนวณสรุปจำนวนงานสำหรับ Dashboard Cards
+  const pendingCount = tickets.filter((t) => t.status === "pending").length;
+  const inProgressCount = tickets.filter((t) => t.status === "in_progress").length;
+  const completedCount = tickets.filter((t) => t.status === "completed").length;
+
   if (isCheckingAuth) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center p-4">
@@ -315,9 +356,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // ⛔ หน้าจอเตือนเมื่อ UID ไม่ได้รับอนุญาต (Unauthorized Access)
-  // --------------------------------------------------------------------------
   if (unauthorizedUid) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
@@ -325,7 +363,6 @@ export default function AdminDashboard() {
           <div className="w-20 h-20 bg-red-50 rounded-2xl mx-auto flex items-center justify-center mb-6 text-red-500">
             <ShieldAlert className="w-10 h-10" />
           </div>
-          
           <h1 className="text-2xl font-bold text-slate-900 mb-2">ไม่มีสิทธิ์เข้าถึงระบบ</h1>
           <p className="text-slate-500 text-sm mb-6">บัญชี LINE ของคุณยังไม่ได้ลงทะเบียนเป็นแอดมิน</p>
 
@@ -349,9 +386,6 @@ export default function AdminDashboard() {
                 {isCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-[11px] text-orange-700/80 mt-1">
-              *นำ UID นี้ส่งไปแจ้งที่ <code className="bg-orange-100 px-1 py-0.5 rounded font-mono">LINE ID: tamvrzo123123</code> เพื่ออนุญาตสิทธิ์
-            </p>
           </div>
 
           <button onClick={handleLogout} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm">
@@ -362,9 +396,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // 🔐 หน้าจอเข้าสู่ระบบ (เมื่อยังไม่ได้ล็อกอิน)
-  // --------------------------------------------------------------------------
   if (!isLoggedIn) {
     return (
       <div className="min-h-screen bg-slate-50 flex items-center justify-center p-4 relative overflow-hidden">
@@ -383,9 +414,6 @@ export default function AdminDashboard() {
     );
   }
 
-  // --------------------------------------------------------------------------
-  // 📊 กรองรายการตามคำค้นหาและสถานะ
-  // --------------------------------------------------------------------------
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch = String(ticket.id).toLowerCase().includes(searchTerm.toLowerCase()) || 
                           String(ticket.room).toLowerCase().includes(searchTerm.toLowerCase()) || 
@@ -403,9 +431,6 @@ export default function AdminDashboard() {
     }
   };
 
-  // --------------------------------------------------------------------------
-  // 🖥️ หน้าจอหลักแอดมิน (Dashboard)
-  // --------------------------------------------------------------------------
   return (
     <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans pb-20">
       <div className="max-w-6xl mx-auto space-y-6">
@@ -436,7 +461,40 @@ export default function AdminDashboard() {
           </div>
         </div>
 
-        {/* Toolbar */}
+        {/* 📊 1. การ์ดสรุปสถานะงาน (Dashboard Stat Cards) */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-white p-5 rounded-2xl border border-amber-200/60 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-400 mb-1">รอดำเนินการ (รอซ่อม)</p>
+              <p className="text-2xl font-black text-amber-500">{pendingCount} <span className="text-xs font-normal text-slate-400">รายการ</span></p>
+            </div>
+            <div className="w-12 h-12 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500">
+              <Clock className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-orange-200/60 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-400 mb-1">กำลังดำเนินการ (กำลังซ่อม)</p>
+              <p className="text-2xl font-black text-orange-500">{inProgressCount} <span className="text-xs font-normal text-slate-400">รายการ</span></p>
+            </div>
+            <div className="w-12 h-12 bg-orange-50 rounded-2xl flex items-center justify-center text-orange-500">
+              <Wrench className="w-6 h-6" />
+            </div>
+          </div>
+
+          <div className="bg-white p-5 rounded-2xl border border-emerald-200/60 shadow-sm flex items-center justify-between">
+            <div>
+              <p className="text-xs font-bold text-slate-400 mb-1">ซ่อมเสร็จสิ้นแล้ว</p>
+              <p className="text-2xl font-black text-emerald-600">{completedCount} <span className="text-xs font-normal text-slate-400">รายการ</span></p>
+            </div>
+            <div className="w-12 h-12 bg-emerald-50 rounded-2xl flex items-center justify-center text-emerald-600">
+              <CheckCircle2 className="w-6 h-6" />
+            </div>
+          </div>
+        </div>
+
+        {/* Toolbar (พร้อมปุ่ม Export ข้อมูลงานเสร็จแล้ว) */}
         <div className="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row gap-4 items-center justify-between">
           <div className="relative w-full md:max-w-md">
             <Search className="w-5 h-5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
@@ -446,19 +504,31 @@ export default function AdminDashboard() {
               className="w-full bg-slate-50 border border-slate-200 rounded-lg pl-10 pr-4 py-2.5 text-sm focus:outline-none focus:border-orange-500 focus:ring-1 focus:ring-orange-500 text-slate-800"
             />
           </div>
-          <div className="flex items-center gap-2 w-full md:w-auto overflow-x-auto pb-1 md:pb-0">
-            <Filter className="w-4 h-4 text-slate-400 shrink-0" />
-            {[
-              { id: "all", label: "ทั้งหมด" }, { id: "pending", label: "รอซ่อม" },
-              { id: "in_progress", label: "กำลังซ่อม" }, { id: "completed", label: "เสร็จสิ้น" },
-            ].map((tab) => (
-              <button
-                key={tab.id} onClick={() => setStatusFilter(tab.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium whitespace-nowrap transition-colors ${statusFilter === tab.id ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
-              >
-                {tab.label}
-              </button>
-            ))}
+
+          <div className="flex flex-wrap items-center gap-2 w-full md:w-auto justify-between md:justify-end">
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
+              <Filter className="w-4 h-4 text-slate-400 shrink-0" />
+              {[
+                { id: "all", label: "ทั้งหมด" }, { id: "pending", label: "รอซ่อม" },
+                { id: "in_progress", label: "กำลังซ่อม" }, { id: "completed", label: "เสร็จสิ้น" },
+              ].map((tab) => (
+                <button
+                  key={tab.id} onClick={() => setStatusFilter(tab.id)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold whitespace-nowrap transition-colors ${statusFilter === tab.id ? "bg-orange-500 text-white" : "bg-slate-100 text-slate-600 hover:bg-slate-200"}`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 📥 2. ปุ่ม Export งานที่เสร็จแล้วเป็น Excel/CSV */}
+            <button
+              onClick={handleExportCompletedCSV}
+              className="bg-emerald-600 hover:bg-emerald-700 active:scale-[0.98] text-white px-3.5 py-2 rounded-xl text-xs font-bold flex items-center gap-2 transition-all shadow-md shadow-emerald-600/20 shrink-0"
+              title="ส่งออกรายงานเฉพาะงานที่ซ่อมเสร็จแล้วเป็น Excel/CSV"
+            >
+              <FileSpreadsheet className="w-4 h-4" /> Export งานเสร็จแล้ว
+            </button>
           </div>
         </div>
 
@@ -544,7 +614,6 @@ export default function AdminDashboard() {
 
               <div className="p-6 grid grid-cols-1 md:grid-cols-2 gap-8">
                 
-                {/* คอลัมน์ซ้าย: รายละเอียดข้อมูลผู้แจ้งและการชำรุด */}
                 <div className="space-y-6">
                   <div>
                     <h4 className="text-sm font-bold text-slate-800 border-b border-slate-200 pb-2 mb-3 flex items-center gap-2"><User className="w-4 h-4 text-orange-500"/> ข้อมูลผู้แจ้ง</h4>
@@ -601,7 +670,6 @@ export default function AdminDashboard() {
                   </div>
                 </div>
 
-                {/* คอลัมน์ขวา: ส่วนบันทึกและปรับสถานะของแอดมิน */}
                 <div className="bg-slate-50 p-6 rounded-3xl border border-slate-200 h-fit space-y-5">
                   <h4 className="text-sm font-bold text-slate-900 pb-2 border-b border-slate-200 flex items-center gap-2"><Wrench className="w-4 h-4 text-orange-500"/> ส่วนจัดการของเจ้าหน้าที่</h4>
                   <div>
