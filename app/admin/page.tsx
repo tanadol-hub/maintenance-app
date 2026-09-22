@@ -41,7 +41,7 @@ const LIFF_ADMIN_ID = process.env.NEXT_PUBLIC_LIFF_ADMIN_ID || "2011648763-lxIG7
 
 // 🔑 รายชื่อ UID ของ LINE ที่ระบุว่าเป็นแอดมิน (นำ UID ของคุณมาวางใส่ในอาร์เรย์นี้ได้เลย)
 const ALLOWED_ADMIN_UIDS: string[] = [
-  "U1dff1acb3bad2370d4151326c7bfd3e6"
+  
 ];
 // --------------------------------------------------------------------------
 
@@ -127,24 +127,24 @@ export default function AdminDashboard() {
             : [];
           const validUids = [...ALLOWED_ADMIN_UIDS, ...envUids].filter(Boolean);
 
-         if (validUids.length > 0 && validUids.includes(userUid)) {
-  setIsLoggedIn(true);
-  setAdminProfile({
-    userId: profile.userId,
-    displayName: profile.displayName,
-    pictureUrl: profile.pictureUrl
-  });
-  setUnauthorizedUid(null);
-} else {
-  // หากยังไม่ได้ใส่ UID หรือ UID ไม่ตรง ให้ล็อกหน้า "ไม่มีสิทธิ์เข้าถึงระบบ" และโชว์ UID
-  setIsLoggedIn(false);
-  setUnauthorizedUid(userUid);
-  setAdminProfile({
-    userId: profile.userId,
-    displayName: profile.displayName,
-    pictureUrl: profile.pictureUrl
-  });
-}
+          if (validUids.length > 0 && validUids.includes(userUid)) {
+            setIsLoggedIn(true);
+            setAdminProfile({
+              userId: profile.userId,
+              displayName: profile.displayName,
+              pictureUrl: profile.pictureUrl
+            });
+            setUnauthorizedUid(null);
+          } else {
+            // หากยังไม่ได้ใส่ UID หรือ UID ไม่ตรง ให้ล็อกหน้า "ไม่มีสิทธิ์เข้าถึงระบบ" และโชว์ UID
+            setIsLoggedIn(false);
+            setUnauthorizedUid(userUid);
+            setAdminProfile({
+              userId: profile.userId,
+              displayName: profile.displayName,
+              pictureUrl: profile.pictureUrl
+            });
+          }
         } else {
           setIsLoggedIn(false);
         }
@@ -180,21 +180,21 @@ export default function AdminDashboard() {
         if (json.status === "success" && Array.isArray(json.data)) {
           // eslint-disable-next-line @typescript-eslint/no-explicit-any
           const formattedTickets: MaintenanceTicket[] = json.data.map((item: any) => ({
-            id: item.ticketId || item.id || "",
-            createdAt: item.createdAt || "",
-            userRole: item.userRole || "",
-            reporterName: item.name || item.reporterName || "",
-            phone: item.phone || "",
-            room: item.room || "",
-            pcNumber: item.pcNumber || "",
+            id: String(item.ticketId || item.id || ""),
+            createdAt: String(item.createdAt || ""),
+            userRole: String(item.userRole || ""),
+            reporterName: String(item.name || item.reporterName || ""),
+            phone: String(item.phone || ""),
+            room: String(item.room || ""),
+            pcNumber: String(item.pcNumber || ""),
             issues: item.issuesList 
               ? (Array.isArray(item.issuesList) ? item.issuesList : String(item.issuesList).split(", ")) 
               : (Array.isArray(item.issues) ? item.issues : []),
-            description: item.description || "",
+            description: String(item.description || ""),
             impact: (item.impact as "Critical" | "High" | "Low") || "Low",
-            imageUrl: item.imageUrl || "",
+            imageUrl: String(item.imageUrl || ""),
             status: mapStatus(item.status),
-            technicianNote: item.technicianNote || item.note || "",
+            technicianNote: String(item.technicianNote || item.note || ""),
           }));
 
           // แสดงรายการโดยนำใบแจ้งซ่อมล่าสุดขึ้นก่อน
@@ -378,7 +378,10 @@ export default function AdminDashboard() {
   // 📊 กรองรายการตามคำค้นหาและสถานะ
   // --------------------------------------------------------------------------
   const filteredTickets = tickets.filter((ticket) => {
-    const matchesSearch = ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) || ticket.room.toLowerCase().includes(searchTerm.toLowerCase()) || ticket.reporterName.includes(searchTerm);
+    // ป้องกันการแครชถ้าข้อมูลมาเป็น Number โดยการครอบ String() และบังคับค้นหาพิมพ์เล็ก-ใหญ่ได้ทั้งหมด
+    const matchesSearch = String(ticket.id).toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          String(ticket.room).toLowerCase().includes(searchTerm.toLowerCase()) || 
+                          String(ticket.reporterName).toLowerCase().includes(searchTerm.toLowerCase());
     const matchesStatus = statusFilter === "all" || ticket.status === statusFilter;
     return matchesSearch && matchesStatus;
   });
