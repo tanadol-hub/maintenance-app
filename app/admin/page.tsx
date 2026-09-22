@@ -103,12 +103,12 @@ export default function AdminDashboard() {
   const [editNote, setEditNote] = useState("");
 
   // 1. ตรวจสอบการเข้าสู่ระบบ LIFF และเช็ค UID แอดมินเมื่อเปิดหน้าเว็บ
+ // 1. ตรวจสอบการเข้าสู่ระบบ LIFF และเช็ค UID แอดมินเมื่อเปิดหน้าเว็บ
   useEffect(() => {
     const verifyAdminAuth = async () => {
       setIsCheckingAuth(true);
       try {
         if (!LIFF_ADMIN_ID) {
-          // กรณีไม่มี LIFF ID ตั้งไว้ ให้ผ่านเข้าหน้า Admin ได้เลย (สำหรับ Development / Testing)
           setIsLoggedIn(true);
           setIsCheckingAuth(false);
           return;
@@ -121,29 +121,41 @@ export default function AdminDashboard() {
           const profile = await liff.getProfile();
           const userUid = profile.userId;
 
-          // รวบรวม UID จากทั้งในไฟล์ และจาก .env.local (ถ้ามี)
+          setAdminProfile({
+            userId: profile.userId,
+            displayName: profile.displayName,
+            pictureUrl: profile.pictureUrl
+          });
+
+          // ดึงรายชื่อ UID จาก Google Sheets
+          let sheetAdmins: string[] = [];
+          try {
+            const res = await fetch(`${GAS_URL}?action=getAdmins`, { cache: "no-store" });
+            const text = await res.text();
+            if (!text.trim().startsWith("<")) {
+              const json = JSON.parse(text);
+              if (json.status === "success" && Array.isArray(json.data)) {
+                // ดึงเฉพาะค่า UID ออกมาจากชุดข้อมูล
+                // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                sheetAdmins = json.data.map((item: any) => String(item.uid).trim());
+              }
+            }
+          } catch (err) {
+            console.error("Failed to fetch admins from Google Sheets", err);
+          }
+
+          // รวบรวม UID จากทั้งในไฟล์ (ถ้ามีเผื่อไว้), จาก .env.local และจาก Google Sheets
           const envUids = process.env.NEXT_PUBLIC_ADMIN_UIDS 
             ? process.env.NEXT_PUBLIC_ADMIN_UIDS.split(",").map(u => u.trim()) 
             : [];
-          const validUids = [...ALLOWED_ADMIN_UIDS, ...envUids].filter(Boolean);
+          const validUids = [...ALLOWED_ADMIN_UIDS, ...envUids, ...sheetAdmins].filter(Boolean);
 
           if (validUids.length > 0 && validUids.includes(userUid)) {
             setIsLoggedIn(true);
-            setAdminProfile({
-              userId: profile.userId,
-              displayName: profile.displayName,
-              pictureUrl: profile.pictureUrl
-            });
             setUnauthorizedUid(null);
           } else {
-            // หากยังไม่ได้ใส่ UID หรือ UID ไม่ตรง ให้ล็อกหน้า "ไม่มีสิทธิ์เข้าถึงระบบ" และโชว์ UID
             setIsLoggedIn(false);
             setUnauthorizedUid(userUid);
-            setAdminProfile({
-              userId: profile.userId,
-              displayName: profile.displayName,
-              pictureUrl: profile.pictureUrl
-            });
           }
         } else {
           setIsLoggedIn(false);
@@ -157,7 +169,6 @@ export default function AdminDashboard() {
 
     verifyAdminAuth();
   }, []);
-
   // 2. ดึงข้อมูลจริงจาก Google Sheets เมื่อยืนยันการล็อกอินแอดมินผ่านแล้ว
   useEffect(() => {
     if (!isLoggedIn) return;
