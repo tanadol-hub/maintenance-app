@@ -41,7 +41,7 @@ const LIFF_ADMIN_ID = process.env.NEXT_PUBLIC_LIFF_ADMIN_ID || "2011648763-lxIG7
 
 // 🔑 รายชื่อ UID ของ LINE ที่ระบุว่าเป็นแอดมิน (นำ UID ของคุณมาวางใส่ในอาร์เรย์นี้ได้เลย)
 const ALLOWED_ADMIN_UIDS: string[] = [
-  
+  "U1dff1acb3bad2370d4151326c7bfd3e6"
 ];
 // --------------------------------------------------------------------------
 

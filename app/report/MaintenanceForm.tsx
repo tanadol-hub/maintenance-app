@@ -317,28 +317,8 @@ export default function MaintenanceForm() {
                 </div>
               </motion.section>
 
-              {/* Section 4: Impact */}
-              <motion.section variants={itemVariants} className="space-y-4">
-                <h2 className="text-lg font-semibold text-slate-800 flex items-center gap-2 border-b border-slate-100 pb-2">
-                  <Zap className="w-5 h-5 text-amber-500" /> 4. ระดับผลกระทบ
-                </h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <label className="relative flex p-4 border border-slate-200 bg-white rounded-xl cursor-pointer hover:border-orange-300 hover:bg-orange-50/30 transition-colors group shadow-sm">
-                    <input type="radio" value="high" {...register("impact", { required: true })} className="mt-0.5 w-4 h-4 text-red-500 focus:ring-red-500 border-slate-300 bg-white" />
-                    <div className="ml-3">
-                      <span className="block text-sm font-medium text-slate-800 group-hover:text-slate-900">ด่วนมาก (กระทบการเรียนการสอน)</span>
-                      <span className="block text-xs text-slate-500 mt-1">อุปกรณ์หลักใช้งานไม่ได้เลย ต้องการการแก้ไขทันที</span>
-                    </div>
-                  </label>
-                  <label className="relative flex p-4 border border-slate-200 bg-white rounded-xl cursor-pointer hover:border-orange-300 hover:bg-orange-50/30 transition-colors group shadow-sm">
-                    <input type="radio" value="normal" {...register("impact")} className="mt-0.5 w-4 h-4 text-orange-500 focus:ring-orange-500 border-slate-300 bg-white" />
-                    <div className="ml-3">
-                      <span className="block text-sm font-medium text-slate-800 group-hover:text-slate-900">ปกติ (ยังพอใช้งานได้)</span>
-                      <span className="block text-xs text-slate-500 mt-1">มีปัญหาบางส่วน หรือมีเครื่องสำรองทดแทน ทยอยแก้ไขได้</span>
-                    </div>
-                  </label>
-                </div>
-              </motion.section>
+             {/* Section 4: Impact */}
+             
 
               {/* Section 5: Upload Image */}
               <motion.section variants={itemVariants} className="space-y-4">
