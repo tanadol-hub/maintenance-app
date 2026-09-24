@@ -378,7 +378,7 @@ export default function AdminDashboard() {
             </div>
           )}
 
-          <div className="bg-orange-50/70 border border-orange-200 p-4 rounded-2xl text-left mb-6 space-y-2">
+          <div className="bg-orange-50/70 border border-orange-200 p-4 rounded-2xl text-left mb-4 space-y-2">
             <p className="text-xs font-bold text-orange-800">LINE UID ของคุณคือ:</p>
             <div className="flex items-center justify-between bg-white px-3 py-2 rounded-xl border border-orange-200 font-mono text-xs text-slate-800 break-all">
               <span>{unauthorizedUid}</span>
@@ -386,6 +386,16 @@ export default function AdminDashboard() {
                 {isCopied ? <Check className="w-4 h-4 text-emerald-600" /> : <Copy className="w-4 h-4" />}
               </button>
             </div>
+          </div>
+
+          {/* ✨ เพิ่มกล่องข้อความแนะนำการแอด LINE Bot ตรงนี้ */}
+          <div className="bg-[#00B900]/10 border border-[#00B900]/20 p-4 rounded-2xl text-left mb-6">
+            <p className="text-xs font-bold text-[#00B900] mb-1.5 flex items-center gap-1.5">
+              <MessageCircle className="w-4 h-4" /> ขั้นตอนที่ต้องทำเพิ่มเติม
+            </p>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              เมื่อแจ้งเพิ่ม UID เข้าระบบแล้ว กรุณาแอดเพื่อน LINE ID: <span className="font-bold text-slate-900 bg-white px-1.5 py-0.5 rounded border border-slate-200">@009mldgp</span> แล้วทักแชท 1 ครั้ง เพื่อเปิดรับการแจ้งเตือน
+            </p>
           </div>
 
           <button onClick={handleLogout} className="w-full bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl flex items-center justify-center gap-2 transition-colors text-sm">
