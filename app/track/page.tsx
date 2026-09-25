@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useMemo } from "react";
+import useSWR from "swr";
 import { motion } from "framer-motion";
 import { 
   Search, Clock, CheckCircle2, Wrench, AlertCircle, 
@@ -24,7 +25,7 @@ interface MaintenanceTicket {
 }
 
 // URL ระบบ Google Apps Script
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbw2ZKH5_XyrtgiZJgwfeyMaljH75yFoDrUClbqLZ-ZJ8puT74Kza7apXEdwVO2BP_OvWA/exec";
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbzZmZiecjtZRiisDqh-TUyV5mnln6Kh3ypYr6-F4dyuPuwtSQg4i9d8SSpaZ13tHNt_Lw/exec";
 
 // ฟังก์ชันแปลงสถานะจากภาษาไทยใน Google Sheets ให้ตรงกับ TicketStatus ในระบบ
 const mapStatus = (thaiStatus: string): TicketStatus => {
@@ -34,59 +35,63 @@ const mapStatus = (thaiStatus: string): TicketStatus => {
   return "pending";
 };
 
+// ฟังก์ชัน Fetcher สำหรับ SWR
+const fetcher = async (url: string) => {
+  const res = await fetch(url, { cache: "no-store" });
+  const text = await res.text();
+  
+  if (text.trim().startsWith("<")) {
+    throw new Error("GAS returned HTML response");
+  }
+  
+  const json = JSON.parse(text);
+  if (json.status !== "success" || !Array.isArray(json.data)) {
+    throw new Error("Invalid data format");
+  }
+  
+  return json.data;
+};
+
 export default function TrackingPage() {
-  const [tickets, setTickets] = useState<MaintenanceTicket[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
 
-  // ดึงข้อมูลจริงจาก Google Apps Script
-  const fetchTickets = async () => {
-    setIsLoading(true);
-    try {
-      const res = await fetch(`${GAS_URL}?action=getAllTickets`, { cache: "no-store" });
-      const text = await res.text();
-
-      if (text.trim().startsWith("<")) {
-        console.error("GAS returned HTML response:", text);
-        return;
-      }
-
-      const json = JSON.parse(text);
-
-      if (json.status === "success" && Array.isArray(json.data)) {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const formattedTickets: MaintenanceTicket[] = json.data.map((item: any) => ({
-          id: item.ticketId || item.id || "",
-          reporterName: item.name || item.reporterName || "",
-          phone: item.phone || "",
-          room: item.room || "",
-          pcNumber: item.pcNumber || "",
-          issues: item.issuesList 
-            ? (Array.isArray(item.issuesList) ? item.issuesList : String(item.issuesList).split(", ")) 
-            : (Array.isArray(item.issues) ? item.issues : []),
-          impact: item.impact === "Critical" || item.impact === "High" ? "high" : "normal",
-          status: mapStatus(item.status),
-          createdAt: item.createdAt || "",
-          updatedAt: item.updatedAt || item.createdAt || "",
-          technicianNote: item.technicianNote || item.note || "",
-        }));
-
-        // นำรายการแจ้งซ่อมล่าสุดขึ้นก่อน
-        setTickets(formattedTickets.reverse());
-      }
-    } catch (error) {
-      console.error("Error fetching tickets:", error);
-    } finally {
-      setIsLoading(false);
+  // 🚀 ใช้ SWR ดึงข้อมูล (โหลดเสร็จทันที 0 วินาทีถ้ามี Cache)
+  const { data: rawData, error, isLoading: isInitialLoading, isValidating, mutate } = useSWR(
+    `${GAS_URL}?action=getAllTickets`,
+    fetcher,
+    {
+      revalidateOnFocus: false, // ไม่โหลดใหม่ซ้ำซ้อนตอนสลับแท็บ
+      refreshInterval: 15000,   // อัปเดตข้อมูลอัตโนมัติทุกๆ 15 วินาที
     }
-  };
+  );
 
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchTickets();
-  }, []);
+  // แปลงข้อมูลและจัดเรียง (ใช้ useMemo เพื่อไม่ให้คำนวณใหม่พร่ำเพรื่อ)
+  const tickets = useMemo<MaintenanceTicket[]>(() => {
+    if (!rawData) return [];
+    
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const formatted: MaintenanceTicket[] = rawData.map((item: any) => ({
+      id: item.ticketId || item.id || "",
+      reporterName: item.name || item.reporterName || "",
+      phone: item.phone || "",
+      room: item.room || "",
+      pcNumber: item.pcNumber || "",
+      issues: item.issuesList 
+        ? (Array.isArray(item.issuesList) ? item.issuesList : String(item.issuesList).split(", ")) 
+        : (Array.isArray(item.issues) ? item.issues : []),
+      impact: item.impact === "Critical" || item.impact === "High" ? "high" : "normal",
+      status: mapStatus(item.status),
+      createdAt: item.createdAt || "",
+      updatedAt: item.updatedAt || item.createdAt || "",
+      technicianNote: item.technicianNote || item.note || "",
+    }));
 
+    // นำรายการแจ้งซ่อมล่าสุดขึ้นก่อน
+    return formatted.reverse();
+  }, [rawData]);
+
+  // ฟิลเตอร์ข้อมูลตามที่ค้นหา
   const filteredTickets = tickets.filter((ticket) => {
     const matchesSearch = 
       ticket.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -156,12 +161,12 @@ export default function TrackingPage() {
               />
             </div>
             <button 
-              onClick={fetchTickets}
-              disabled={isLoading}
+              onClick={() => mutate()} // สั่งให้ SWR รีเฟรชข้อมูล
+              disabled={isValidating}
               className="px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl transition-colors flex items-center justify-center shrink-0"
               title="รีเฟรชข้อมูล"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? "animate-spin text-orange-500" : ""}`} />
+              <RefreshCw className={`w-4 h-4 ${isValidating ? "animate-spin text-orange-500" : ""}`} />
             </button>
           </div>
 
@@ -192,7 +197,12 @@ export default function TrackingPage() {
 
         {/* รายการการแจ้งซ่อม */}
         <div className="space-y-4">
-          {isLoading ? (
+          {error ? (
+             <div className="bg-red-50 rounded-2xl p-6 text-center border border-red-200 text-red-500">
+               <AlertCircle className="w-8 h-8 mx-auto mb-2 text-red-400" />
+               <p className="font-medium">เกิดข้อผิดพลาดในการดึงข้อมูล โปรดลองใหม่อีกครั้ง</p>
+             </div>
+          ) : isInitialLoading ? (
             <div className="bg-white rounded-2xl p-12 text-center border border-slate-200 text-slate-500">
               <div className="w-8 h-8 border-4 border-orange-500 border-t-transparent rounded-full animate-spin mx-auto mb-3"></div>
               <p className="text-sm font-medium">กำลังโหลดข้อมูลการแจ้งซ่อมล่าสุด...</p>
