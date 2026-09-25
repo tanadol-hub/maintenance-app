@@ -38,7 +38,7 @@ interface AdminProfile {
 // --------------------------------------------------------------------------
 // ⚙️ การตั้งค่าระบบ
 // --------------------------------------------------------------------------
-const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbzZmZiecjtZRiisDqh-TUyV5mnln6Kh3ypYr6-F4dyuPuwtSQg4i9d8SSpaZ13tHNt_Lw/exec";
+const GAS_URL = process.env.NEXT_PUBLIC_GAS_URL || "https://script.google.com/macros/s/AKfycbyZxL8vxT0F8AZmMsS3TB-3ZXQBWhOmHnIxQm16ZjFxEuwO78BWEegvGjb5FCK8z8MFkQ/exec";
 const LIFF_ADMIN_ID = process.env.NEXT_PUBLIC_LIFF_ADMIN_ID || "2011648763-lxIG7crp"; 
 
 const ALLOWED_ADMIN_UIDS: string[] = [];
